@@ -1,151 +1,119 @@
 import streamlit as st
 import pandas as pd
-import math
-from pathlib import Path
+import numpy as np
 
-# Set the title and favicon that appear in the Browser's tab bar.
 st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
+    page_title="منصة يمن موبايل الذكية",
+    page_icon="📱",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+# --- تنسيق CSS ---
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
+html, body, [class*="css"] { font-family: 'Tajawal', sans-serif; }
+.main-header { background: linear-gradient(90deg, #00A651 0%, #007A3D 100%); padding: 20px; border-radius: 15px; color: white; text-align: center; margin-bottom: 20px; }
+.card { background: white; padding: 15px; border-radius: 10px; border-right: 5px solid #00A651; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; }
+</style>
+""", unsafe_allow_html=True)
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+st.markdown('<div class="main-header"><h1>📱 منصة يمن موبايل الذكية</h1><p>نظام تحليل البيانات وخدمة العملاء - Yemen Mobile Smart Platform</p></div>', unsafe_allow_html=True)
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
+# --- القائمة الجانبية ---
+with st.sidebar:
+    st.image("https://yemenmobile.com.ye/images/logo.png", width=150)
+    st.title("القائمة الرئيسية")
+    menu = st.radio("اختر الخدمة:", 
+        ["📊 لوحة التحكم الرئيسية", "📦 تحليل الباقات", "👥 تحليل العملاء", "💬 نظام الشكاوى الذكي", "📈 التنبؤ بالإيرادات"])
+    
+    st.divider()
+    st.info("المطور: bjahhmadh-ui\nحالة النظام: متصل 🟢")
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
+# --- لوحة التحكم ---
+if menu == "📊 لوحة التحكم الرئيسية":
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("إجمالي المشتركين", "4.2 مليون", "+12%")
+    col2.metric("إيرادات اليوم", "18.5 مليون ريال", "+5%")
+    col3.metric("الشكاوى المفتوحة", "127", "-8%")
+    col4.metric("نسبة رضا العملاء", "92%", "+2%")
 
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
+    st.divider()
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("استهلاك البيانات حسب المحافظة")
+        data = pd.DataFrame({
+            'المحافظة': ['حضرموت', 'عدن', 'صنعاء', 'تعز', 'الحديدة', 'المكلا'],
+            'الاستهلاك (TB)': [450, 380, 520, 210, 180, 310]
+        })
+        st.bar_chart(data.set_index('المحافظة'))
+    
+    with c2:
+        st.subheader("توزيع أنواع الباقات")
+        chart_data = pd.DataFrame({
+            'الباقة': ['مزايا', 'انترنت', 'فورجي', 'دولي'],
+            'النسبة': [45, 30, 15, 10]
+        })
+        st.dataframe(chart_data, use_container_width=True)
+        st.progress(92, text="اكتمال الشبكة")
 
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
+elif menu == "📦 تحليل الباقات":
+    st.header("📦 محلل الباقات الذكي")
+    st.write("أدخل استهلاك العميل لترشيح أفضل باقة يمن موبايل")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        internet = st.slider("استهلاك الانترنت (GB)", 0, 100, 15)
+        calls = st.slider("دقائق الاتصال", 0, 1000, 200)
+    with col2:
+        sms = st.slider("عدد الرسائل", 0, 500, 50)
+        budget = st.number_input("ميزانية العميل (ريال)", 1000, 20000, 5000)
 
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
-
-    return gdp_df
-
-gdp_df = get_gdp_data()
-
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
-
-''
-''
-
-
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
+    if st.button("اقتراح الباقة المناسبة"):
+        if internet > 40:
+            st.success("✅ الباقة المقترحة: باقة مزايا 40GB - فورجي سوبر - 8000 ريال")
+        elif internet > 20:
+            st.success("✅ الباقة المقترحة: باقة مزايا 20GB - 5000 ريال")
         else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
+            st.success("✅ الباقة المقترحة: باقة مزايا 10GB - 3000 ريال")
+        st.balloons()
 
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+elif menu == "👥 تحليل العملاء":
+    st.header("تحليل سلوك العملاء")
+    uploaded = st.file_uploader("ارفع ملف بيانات العملاء (CSV)", type=["csv"])
+    if uploaded:
+        df = pd.read_csv(uploaded)
+        st.dataframe(df.head())
+    else:
+        st.info("مثال: سيتم عرض تحليل تلقائي")
+        dummy = pd.DataFrame({
+            'رقم': ['777xxxx01', '777xxxx02', '777xxxx03'],
+            'الاستهلاك': [12, 45, 8],
+            'خطر المغادرة': ['منخفض', 'مرتفع 🔴', 'منخفض']
+        })
+        st.table(dummy)
+
+elif menu == "💬 نظام الشكاوى الذكي":
+    st.header("نظام تصنيف الشكاوى التلقائي")
+    complaint = st.text_area("اكتب شكوى العميل هنا:", "الانترنت بطيء في المكلا...")
+    if st.button("تحليل الشكوى"):
+        if "بطيء" in complaint or "نت" in complaint:
+            st.warning("التصنيف: مشكلة شبكة - انترنت\nالأولوية: عالية\nالتحويل إلى: قسم الدعم الفني - حضرموت")
+        elif "رصيد" in complaint:
+            st.warning("التصنيف: مالي - رصيد\nالأولوية: متوسطة")
+        else:
+            st.info("التصنيف: عام\nسيتم الرد خلال 24 ساعة")
+
+elif menu == "📈 التنبؤ بالإيرادات":
+    st.header("التنبؤ بالإيرادات")
+    months = st.slider("عدد الأشهر للتنبؤ", 1, 12, 3)
+    base = 50000000
+    forecast = [base + np.random.randint(-5000000, 10000000) for _ in range(months)]
+    df_f = pd.DataFrame({"الشهر": [f"شهر {i+1}" for i in range(months)], "الإيراد المتوقع": forecast})
+    st.line_chart(df_f.set_index("الشهر"))
+    st.metric("إجمالي متوقع", f"{sum(forecast):,} ريال")
+
+st.divider()
+st.caption("© 2026 Yemen Mobile - منصة ذكية مطورة بواسطة bjahhmadh-ui - جميع الحقوق محفوظة")
